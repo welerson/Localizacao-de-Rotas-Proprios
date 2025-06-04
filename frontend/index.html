@@ -164,7 +164,8 @@
           marker.setStyle({ color: 'gray', fillOpacity: 0.6, radius: 10 });
           marker.bindPopup(`<strong>${pt.nome}</strong><br>Status: Visitado`).openPopup();
 
-          fetch("/api/visitados", {
+          fetch("https://localizacao-de-rotas-proprios-production.up.railway.app/api/visitados")
+, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -232,7 +233,8 @@
     atualizarListas();
 
     function atualizarVisitados() {
-      fetch("/api/visitados")
+     fetch("https://localizacao-de-rotas-proprios-production.up.railway.app/api/visitados", {
+
         .then(res => res.json())
         .then(data => {
           data.forEach(v => {
