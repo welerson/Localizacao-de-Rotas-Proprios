@@ -111,147 +111,37 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    const marcadores = [];
-    const visitados = new Set(JSON.parse(localStorage.getItem('visitados') || '[]'));
-    let posAtual = { lat: null, lng: null };
-    let marcadorViatura = null;
+    let marcadores = [];
 
-    function calcularDistancia(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) ** 2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function atualizarListas() {
-      const ulVisitados = document.getElementById("listaVisitados");
-      const ulNaoVisitados = document.getElementById("listaNaoVisitados");
-      ulVisitados.innerHTML = "";
-      ulNaoVisitados.innerHTML = "";
-
-      marcadores.forEach(({ ponto }, index) => {
-        const li = document.createElement("li");
-        li.textContent = ponto.nome;
-        if (visitados.has(index)) {
-          li.innerHTML += " ✅";
-          ulVisitados.appendChild(li);
-        } else {
-          ulNaoVisitados.appendChild(li);
-        }
-      });
-    }
-
-    function marcarVisitado(lat, lng, ponto) {
-      if (!posAtual.lat || !posAtual.lng) {
-        alert("Localização do agente não disponível.");
-        return;
-      }
-
-      const distancia = calcularDistancia(posAtual.lat, posAtual.lng, lat, lng);
-      if (distancia > 0.05) {
-        alert("Você precisa estar a menos de 50 metros do local para marcá-lo como visitado.");
-        return;
-      }
-
-      marcadores.forEach(({ marker, ponto: pt }, index) => {
-        if (pt.lat === lat && pt.lng === lng && !visitados.has(index)) {
-          visitados.add(index);
-          localStorage.setItem('visitados', JSON.stringify([...visitados]));
-          marker.setStyle({ color: 'gray', fillOpacity: 0.6, radius: 10 });
-          marker.bindPopup(`<strong>${pt.nome}</strong><br>Status: Visitado`).openPopup();
-
-          fetch("https://localizacao-de-rotas-proprios-production.up.railway.app/api/visitados")
-, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              nome: pt.nome,
-              tipo: pt.tipo,
-              latitude: pt.lat,
-              longitude: pt.lng,
-              viatura: 'VTR 01'
-            })
-          })
-          .then(res => res.text())
-          .then(console.log)
-          .catch(console.error);
-        }
-      });
-
-      atualizarListas();
-    }
-
-    pontosFixos.forEach((p, index) => {
-      const cor = tipoCor[p.tipo] || 'black';
-      const marker = L.circleMarker([p.lat, p.lng], {
-        color: cor,
-        radius: 8,
-        fillOpacity: 0.8
-      }).addTo(map);
-      marcadores.push({ marker, ponto: p });
-
-      if (visitados.has(index)) {
-        marker.setStyle({ color: 'gray', fillOpacity: 0.6, radius: 10 });
-      }
-
-      marker.on('click', () => {
-        const distancia = posAtual.lat && posAtual.lng
-          ? calcularDistancia(posAtual.lat, posAtual.lng, p.lat, p.lng)
-          : Infinity;
-        const podeMarcar = distancia <= 0.05;
-
-        const botao = podeMarcar
-          ? `<button onclick='marcarVisitado(${p.lat}, ${p.lng}, ${JSON.stringify(p).replace(/"/g, "&quot;")})' class='bg-green-600 text-white px-2 py-1 rounded mt-2'>✅ Marcar como Visitado</button>`
-          : `<p class='text-sm text-red-600 mt-2'>Aproxime-se do local para habilitar a marcação.</p>`;
-
-        marker.bindPopup(`
-          <strong>${p.nome}</strong><br>
-          Tipo: ${p.tipo}<br>
-          ${botao}
-        `).openPopup();
-      });
-    });
-
-    navigator.geolocation.watchPosition((pos) => {
-      posAtual.lat = pos.coords.latitude;
-      posAtual.lng = pos.coords.longitude;
-
-      if (marcadorViatura) map.removeLayer(marcadorViatura);
-
-      marcadorViatura = L.marker([posAtual.lat, posAtual.lng], {
-        title: 'Viatura',
-        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png', iconSize: [25, 25] })
-      }).addTo(map);
-    }, (err) => {
-      document.getElementById('erro').textContent = 'Erro ao obter localização em tempo real';
-    });
-
-    atualizarListas();
-
-    function atualizarVisitados() {
-     fetch("https://localizacao-de-rotas-proprios-production.up.railway.app/api/visitados", {
-
+    function atualizarMapa() {
+      fetch("https://localizacao-de-rotas-proprios-production.up.railway.app/api/visitados")
         .then(res => res.json())
         .then(data => {
-          data.forEach(v => {
-            marcadores.forEach(({ marker, ponto }) => {
-              if (ponto.nome === v.nome) {
-                marker.setStyle({ color: 'gray', fillOpacity: 0.6, radius: 10 });
-                marker.bindPopup(`<strong>${ponto.nome}</strong><br>Status: Visitado`);
-              }
-            });
+          marcadores.forEach(m => map.removeLayer(m));
+          marcadores = [];
+
+          document.getElementById("listaVisitados").innerHTML = "";
+
+          data.forEach(ponto => {
+            const marker = L.circleMarker([ponto.latitude, ponto.longitude], {
+              color: 'green', fillOpacity: 0.6, radius: 8
+            }).addTo(map);
+            marker.bindPopup(`<strong>${ponto.nome}</strong><br>${ponto.tipo}<br>${ponto.viatura}`);
+            marcadores.push(marker);
+
+            const li = document.createElement("li");
+            li.textContent = `${ponto.nome} (${ponto.tipo}) - ${new Date(ponto.data).toLocaleString()}`;
+            document.getElementById("listaVisitados").appendChild(li);
           });
         })
-        .catch(console.error);
+        .catch(err => {
+          document.getElementById('erro').textContent = 'Erro ao carregar dados da API';
+          console.error(err);
+        });
     }
 
-    setInterval(atualizarVisitados, 30000);
-    atualizarVisitados();
+    atualizarMapa();
+    setInterval(atualizarMapa, 30000);
   </script>
 </body>
 </html>
-
