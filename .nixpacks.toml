@@ -1,3 +1,6 @@
-[build]
-  command = "npm install && npm start"
-  dir = "backend"
+[phases.setup]
+nixPkgs = ["nodejs"]
+
+[start]
+cmd = "npm start"
+cwd = "backend"
