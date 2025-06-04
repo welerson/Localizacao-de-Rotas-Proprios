@@ -1,22 +1,23 @@
 const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(bodyParser.json());
+// Middleware para servir arquivos estáticos da pasta 'public'
+app.use(express.static(path.join(__dirname, 'public')));
 
-let visitados = [];
+// Rota para o caminho raiz
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
+// Suas outras rotas da API
 app.post('/api/visitados', (req, res) => {
-  const { nome, tipo, latitude, longitude, viatura } = req.body;
-  visitados.push({ nome, tipo, latitude, longitude, viatura, data: new Date().toISOString() });
-  res.send("OK");
+  // Lógica da rota
 });
 
 app.get('/api/visitados', (req, res) => {
-  res.json(visitados);
+  // Lógica da rota
 });
 
 app.listen(port, () => {
